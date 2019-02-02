@@ -1,0 +1,808 @@
+
+
+
+Geomecânica é o estudo das deformações e tensões em solos e rocha. Esse estudo se torna de extrema importância, pois, várias problemas podem ser solucionados através desses estudos, como:
+\begin{itemize}
+    \item Cálculo da pressão de fratura.
+    \item Estabilidade de poços
+\end{itemize}
+
+Assim, simulações de geomecânicas são importantes para uma exploração segura do campo.
+
+\section{Tensor de Tensões}
+
+Para representar a tensão em um ponto da rocha, é utilizado um tensor de tensões de segunda ordem como segue abaixo:
+
+\begin{equation}
+\mathbf{\sigma} =
+    \begin{bmatrix}
+    \stxx & \stxy & \stxz \\
+    \styx & \styy & \styz \\
+    \stzx & \stzy & \stzz
+    \end{bmatrix}
+\end{equation}
+
+O primeiro subscrito do tensor representa a face que a tensão está sendo aplicada, enquanto o segundo representa a direção da tensão. A figura \ref{fig:tensoesx} mostra as componentes com o com primeiro subscrito x.
+
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=5cm]{chap01/tensor.png}
+\caption{Tensões $\sigma_{x.}$ representadas graficamente.}
+\label{fig:tensoesx}
+\end{figure}
+
+Ao aplicar a condição de equilíbrio do momento, chega-se a conclusão que $\stxy=\styx$, $\stxz=\stzx$ e $\styz=\stzy$. Dessa maneira, para a representação desse tensor, são necessários guardar apenas seis valores. Dessa forma, pode-se considerar a tensão como o vetor apresentado \label{eq:tensor6} essa notação é chamada de notação de Voigt e é a bastante utilizada nas implementações de elementos finitos, por exemplo, nas formulações apresentadas por \cite{hughes} e \cite{jacob}.
+
+
+\begin{equation}
+\sigma^T = \begin{bmatrix}
+\stxx & \styy & \stzz & \stxy & \stxz & \styz
+\end{bmatrix}
+\label{eq:tensor6}
+\end{equation}
+
+
+\section{Teoria da Consolidação}
+
+Para um certo elemento de volume $\Delta x\Delta y \Delta z$, representado na figura \ref{fig:equilibrio}, pode-se escrever o equilíbrio nas direções x, y e z.
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=6cm]{chap01/equilibrio.png}
+\caption{Tensões na direção y ($\sigma_{.y}$) representadas graficamente.  Fonte: \cite{CompGeomec}}
+\label{fig:equilibrio}
+\end{figure}
+
+Para a direção y, por exemplo, tem-se:
+
+\begin{multline}
+   (\stxy - \stxy - \Delta \stxy) \Dy\Dz + (\styy - \styy - \Delta \styy)\Dx\Dz  +\\
+   + (\stzy - \stzy - \Delta\stzy) \Dx\Dy + f_y\Dx\Dy\Dz = 0
+\end{multline}
+
+\begin{equation}
+ \Delta \stxy \Dy\Dz + \Delta \styy\Dx\Dz + \Delta\stzy - f_y\Dx\Dy\Dz = 0
+\end{equation}
+
+\begin{equation}
+\dx[\stxy] + \dy[\styy] + \dy[\stzy] - f_y = 0
+\end{equation}
+
+Analogamente, para as outras direções, pode-se montar o seguinte sistema de equações de equilíbrio.
+
+\begin{equation}
+\label{eq:equilibrio1}
+\left\{\begin{matrix}
+ \dx[\stxx] + \dy[\styx] + \dz[\stzx] - f_x & = & 0\\
+ \dx[\stxy] + \dy[\styy] + \dz[\stzy] - f_y & = & 0\\
+ \dx[\stxz] + \dy[\styz] + \dz[\stzz] - f_z & = & 0
+\end{matrix}\right.
+\end{equation}
+
+As tensões apresentadas nas equações \ref{eq:equilibrio1} são as atuam no bloco infinitesimal. Acontece que ao tratar de reservatórios de petróleo, estes possuem fluído no volume poroso da rocha (óleo ou água) e, portanto, parte da tensão será suporta pelo fluído e parte será suportado pelos grãos da rocha. Como fluído não oferece resistência ao cisalhamento, ele suporta apenas parte das tensões $\stxx$, $\styy$ e $\stzz$.
+
+Experimentalmente foi constado por Biot em que a equação que rege a tensão efetiva na rocha ($\sigma^{\prime\prime}$) é dada pela equação \ref{eq:tensaoefetiva} (veja \cite{ResGeomec} cap 02).
+
+\begin{equation}
+\label{eq:tensaoefetiva}
+    \sigma^{\prime\prime} = \sigma - \alpha P_p
+\end{equation}
+
+Onde $\alpha$ é o coeficiente de biot e $P_p$ a pressão de poros. O coeficiente de biot representa o quanto a pressão de poros do fluído suporta a tensão total na rocha, portanto, $\alpha \in [0,1]$.
+
+Assim, as equações \ref{eq:equilibrio1} podem ser reescritas como \ref{eq:equilibrio} substituindo a tensão total $\sigma$ pela tensão efetiva na rocha ($\sigma^\prime$). Essas equações são encontras em \cite{CompGeomec}.
+
+
+
+\begin{equation}
+\label{eq:equilibrio}
+\left\{\begin{matrix}
+\dx[\sxx]  + \dy[\syx] + \dz[\szx] + \dx[\alpha P_p] - f_x   = 0
+\\
+\dx[\sxy]  + \dy[\syy] + \dz[\szy] + \dy[\alpha P_p]  - f_y   = 0
+\\
+\dx[\sxz]  + \dy[\syz] + \dz[\szz] + \dz[\alpha P_p] - f_z   = 0
+\end{matrix}\right.
+\end{equation}
+
+Ou ainda, escrevendo de forma matricial.
+
+\begin{equation}
+\label{eq:equilibrio_matriz}
+\nabla \cdot \sigma^\prime - \nabla \alpha P_p - f = 0
+\end{equation}
+
+Onde $f^T=\begin{bmatrix}f_x & f_y & f_z\end{bmatrix}$.
+
+
+Por motivos de implementação mais eficiente menor uso de memória e utilização de operações mais simples (multiplicação de matrizes por vetores) a equação acima pode ser escrita na notação de Voigt que considerando as definições abaixo:
+
+\begin{equation}
+\begin{matrix}
+\sigma^\prime = \begin{bmatrix}
+\sxx
+\\
+\syy
+\\
+\szz
+\\
+\sxy
+\\
+\sxz
+\\
+\syz
+\end{bmatrix}
+&
+
+;
+
+&
+
+f = \begin{bmatrix}
+f_{x}
+\\
+f_{y}
+\\
+f_{z}
+\end{bmatrix}
+&
+;
+&
+
+m = \begin{bmatrix} 1 \\ 1 \\ 1 \\ 0 \\ 0 \\ 0\end{bmatrix}
+
+&
+;
+
+&
+\sopnabla = \sop
+\end{matrix}
+\end{equation}
+
+A equação \ref{eq:equilibrio_matriz} pode ser reescrita como \ref{eq:equilibrio_final}.
+
+\begin{equation}
+\label{eq:equilibrio_final}
+\sopnabla^T\sigma^{\prime\prime} - \sopnabla^T\alpha m  P_p - f = 0
+\end{equation}
+
+
+\subsection{Relações Constitutivas}
+
+\textit{"Uma relação constitutiva descreve a deformação de uma rocha em resposta a uma tensão (e vice-versa)."} \cite{ResGeomec}
+
+
+Vários tipos de leis constitutivas podem ser utilizadas para representar essa relação entre tensão e deformação. A figura \ref{fig:stress_strain} mostram dados de um teste típico de tensão-deformação em uma rocha bem cimentada. Nesse caso, é importante notar que o comportamento linear é a região dominante nesse tipo de teste. Essa região onde as deformações e tensões se relacionam linearmente é chamada de elástica.
+
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=7cm]{chap01/stress_strain.PNG}
+\caption{Teste de laboratório tensão-deformação para uma rocha bem cimentada. Fonte: \cite{ResGeomec}}
+\label{fig:stress_strain}
+\end{figure}
+
+
+O estudo de mecânica dos sólidos nos mostra que, na região elástica e materiais isotrópicos, é possível escrever uma relação entre as deformações e tensões nos elementos de forma simples. Essa relação é denominada de Lei de Hooke Generalizada e é apresentada na Equação \eqref{eq:hooke}. E a Equação \eqref{eq:elasticMatrix} apresenta a matriz de elasticidade.
+
+
+\begin{equation}{
+\label{eq:hooke}
+\fontsize{4}{4}\selectfont
+\sigma ^{\prime\prime}= D \epsilon
+}
+\end{equation}
+
+
+
+Onde $E$ é o módulo de Young da rocha e $v$ o módulo de de Poisson. Já as deformações se relacionam com os deslocamentos pela equação \eqref{eq:defor_desloc}.
+
+\begin{equation}
+\label{eq:defor_desloc}
+\epsilon = \sopnabla u
+\end{equation}
+
+
+A EDP da equação \eqref{eq:equilibrio_final} pode então ser escrita em função dos deslocamentos substituindo as equações \eqref{eq:hooke} e \eqref{eq:defor_desloc}.
+
+\begin{equation}
+\label{eq:edp_geomec}
+\sopnabla^TD \sopnabla u - \sopnabla^T\alpha m P_p - f = 0
+\end{equation}
+
+Onde $D$ é a matriz de elasticidade da Lei de Hooke. Essa forma será a utilizada junto dos métodos do elementos finitos para construção de um simulador para regime permanente de geomecânica em duas dimensões. Ao se passar
+de três dimensões para duas dimensões existem duas abordagens possíveis de stress plano ou deformação plana. Que são apresentadas respectivamente em \eqref{eq:elasticplanestress} e \eqref{eq:elasticplanestrain}.
+
+\begin{equation} \label{eq:elasticplanestress}
+D_{stress} = \frac{E}{1-\upsilon^2}
+\begin{bmatrix}
+1  & \upsilon & 0 \\ 
+\upsilon & 1 &  0 \\ 
+0 & 0 & \frac{1-\upsilon}{2}
+\end{bmatrix}
+\end{equation}
+
+\begin{equation} \label{eq:elasticplanestrain}
+D_{strain} = \frac{E}{(1+\upsilon)(1-2\upsilon)}
+\begin{bmatrix}
+ 1-\upsilon & \upsilon    &  0 \\ 
+ \upsilon   &  1-\upsilon &  0 \\ 
+ 0& 0 & \frac{1-2\upsilon}{2}
+\end{bmatrix}
+\end{equation}
+
+De acordo com \cite{jacob}, a condição de deformação plana é melhor aplicada quando o elemento é grosso em relação ao plano xy que é o caso dos reservatórios de petróleo.  Dessa forma, artigos como \cite{planeStrainProblems}, \cite{casteletto} e \cite{irina} utilizam a hipótese de deformação plana que será a mesma utilizada nesse trabalho.
+
+Os operadores e vetores devem então ser redefinidos para os mostrados em \eqref{eq:vetores2d}.
+
+\begin{equation}
+\label{eq:vetores2d}
+\begin{matrix}
+\sigma^\prime = \begin{bmatrix}
+\sxx
+\\
+\syy
+\\
+\sxy
+\end{bmatrix}
+&
+
+;
+
+&
+
+f = \begin{bmatrix}
+f_{x}
+\\
+f_{y}
+\end{bmatrix}
+&
+;
+&
+
+m = \begin{bmatrix} 1 \\ 1 \\ 0\end{bmatrix}
+
+&
+;
+
+&
+\sopnabla = \soptwod
+
+&
+;
+
+&
+
+u = \begin{bmatrix}
+u_x
+\\ 
+u_y
+\end{bmatrix}
+
+\end{matrix}
+\end{equation}
+
+Além da Equação \eqref{eq:edp_geomec}, são necessárias as condições de contorno para que o problema fique totalmente definido. 
+
+\section{Modelagem pelo Método dos Elementos Finitos}
+
+Em posse da Equação \eqref{eq:edp_geomec}, é necessário um método numérico para se resolver. O método utilizado nesse trabalho é o método dos Elementos Finitos. O método dos Elementos finitos é bastante difundido. De acordo com \cite{jacob} análise de tensões, transferência de calor, escoamento de fluido e eletromagnetismo. Em particular, a parte de análise de tensões e escoamento de fluído são importantes para a Engenharia de Reservatório. 
+
+
+
+\subsection{Formulação Fraca}
+
+O primeiro passo para utilizar o método dos elementos finitos é chegar na formulação fraca da equação \eqref{eq:edp_geomec}. As referências \cite{jacob} e \cite{hughes} mostram a dedução para chegar em  \eqref{eq:weakform} com exceção do termo relacionado a pressão de poros pois tratam do problema clássico de elasticidade linear. A Equação com esse termo pode ser encontrado em \cite{femgeomec}. A notação utilizada aqui é a mesma que em \cite{casteletto} para manter a coerência com o Capítulo \ref{ch:multiescala}.
+
+\begin{equation}\label{eq:weakform}
+\omeint{ (\sopnabla \mathbf{w})^T D \sopnabla  \mathbf{u}} - \int_{\Gamma_\sigma} \mathbf{w} \bar{\mathbf{t}} d\Gamma = (\sopnabla\mathbf{w})^T m P_p \quad \forall \mathbf{w} \in \trial 
+\end{equation}
+
+
+Com conjunto de teste $\trial = \trialdef$ e conjunto de avaliação igual a $\test = \testdef$. Onde $\sobolev$ representa o espaço de Solobev de grau um. 
+
+\subsection{Divisão do domínio}
+
+O domínio do problema será dividido em uma quantidade finita de elementos, o conjunto desses elementos será chamado de $\tau^h$.  A partição do domínio será realizada em elementos quadriláteros e seus vértices são denominados nós. A Figura \ref{fig:elemento} mostra um exemplo dessa divisão de domínio.
+
+%TODO trocar por figura em que os elementos não sejam 
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=0.8\textwidth]{chap01/figs/exemplo_dominio.png}
+\caption{Exemplo de domínio/reservatório dividido em quadriláteros.}
+\label{fig:elemento}
+\end{figure}
+
+
+A ideia é aproximar o campo $\mathbf{u}$ por um campo aproximado $\mathbf{u^h}$ utilizando \eqref{eq:weakform}. Dado a forma fraca definida em \eqref{eq:weakform} e funções de forma $\basefunctionfine$ para $i = 1, 2, 3, ..., \freedomfine + \essentialfine$ pode-se encontrar uma solução aproximada pelo método de Galerkin. O método consiste em procurar solução não mais para $\mathbf{w} \in \trial$ e $\mathbf{u} \in \test$, mas em encontrar uma solução aproximada nos conjuntos  $\mathbf{w^h} \in \trialaprox = \text{span}\{ \basefunctionfine | i = 1,2, ..., \freedomfine  \}$ e $\mathbf{u}$ da forma aproximada mostrada na \eqref{eq:udiscret} pode-se chegar na forma fraca aproximada \eqref{eq:weakformaprox}.
+
+
+\begin{equation}\label{eq:udiscret}
+\mathbf{u}(\mathbf{x}) = \sum_{i=1}^{\freedomfine} \basefunctionfine  d_i^h + {\sum_{i=1}^ {n^h_{\bar{u}}}}  \basefunctionfineessential \bar{d}_i^h 
+\end{equation}
+
+
+\begin{equation}\label{eq:weakformaprox}
+\omeint{ (\sopnabla \mathbf{w}^h)^T D \sopnabla  \mathbf{u}^h}  =  \int_{\Gamma_\sigma} \mathbf{w}^h \bar{\mathbf{t}} d\Gamma  +  \omeint{(\sopnabla\mathbf{w}^h)^T m P_p}  \quad \forall \mathbf{w}^h \in \trialaprox
+\end{equation}
+
+Onde cada $d_i^h$ representa um grau de liberdade associado a um nó que, a princípio,  tem dois graus de liberdade, um para a direção x e outro para a direção y, a menos dos nós que estão em fronteiras com condição de contorno de Dirichlet. Nesse caso, os nós terão associados valores $\bar{d}_i^h$ para garantir que essas condições de contorno sejam satisfeitas. 
+
+
+ %Para esse tipo de elemento a quantidade de vértices é quatro. Como o campo aproximado de deslocamentos está no plano xy, cada vértice terá dois graus de liberdade um na direção x e um na direção y, que de maneira indistinta serão chamados de $d_i^h$ para algum $i$ que são as variáveis a serem descobertas para encontrar a solução $\textbf{u}$ aproximada. A quantidade de graus de liberdade será chamada de $\freedomfine$. Um nó pertencente a fronteira de $\Omega$  já tem seu grau de liberdade determinado e, portanto, não será uma variável do problema e esses valores serão chamados de $\bar{d}_i^h$ a quantidade de graus de liberdade pertencentes a fronteira de dirichlet será chamada de $\essentialfine$.  Assim, o campo vetorial $u$ será aproximado através de funções $ \basefunctionfine : \Omega \rightarrow \mathbb{R}^2 \quad \forall \quad i=1,2,...,\freedomfine$  relativa aos graus de liberdade e  $ \basefunctionfine : \Omega \rightarrow \mathbb{R}^2 \quad \forall \quad i=\freedomfine+1,2,...,\freedomfine + \essentialfine$  relativas as condições de contorno de Dirichlet através de \eqref{eq:udiscret}.
+
+
+A Equação \eqref{eq:udiscret} também pode ser reescrita utilizando vetores,
+
+\begin{equation}\label{eq:udiscretvetor}
+\mathbf{u}(\mathbf{x}) = \mathbf{N^h} \mathbf{d}^h + \mathbf{\bar{N}^h} \mathbf{\bar{d}}^h
+\end{equation}
+
+onde 
+
+\begin{eqnarray*}
+\mathbf{N^h} = [N^h_1, N^h_2, ..., N^h_{\freedomfine} ] \\
+\mathbf{\bar{N}^h}  =[N^h_{\freedomfine + 1}, N^h_{\freedomfine + 2}, ..., N^h_{\freedomfine + \essentialfine}] \\
+\mathbf{d} = [d_1^h, d_2^h, ... , d_{\freedomfine}^h]^T \\
+\bar{\mathbf{d}} = [\bar{d}_1^h, \bar{d}_2^h, ... , \bar{d}_{\essentialfine}^h]^T
+\end{eqnarray*}
+
+
+
+As funções $\basefunctionfine: \Omega \rightarrow \mathbb{R}^2$ em uma abordagem clássica de elementos finitos, serão da forma $[N^h_{ix} \quad 0]^T$ para um grau de liberdade x e  $[0 \quad N^h_{iy}]^T$  para um grau de liberdade y, portanto, um grau de liberdade x não é utilizado para interpolar o valor do campo $u_y(x, y)$ e vice-versa. Além disso, para um nó com  graus de liberdade $d^h_i$ para x e $d^h_j$ para y tem-se $N^h_{ix} = N^h_{iy}$ que, de acordo com \cite{jacob} é a forma mais usual. Porém, a funções de forma que serão utilizadas no método multiescala, apresentadas no capítulo \ref{ch:multiescala}, não vão obedecer esse padrão e também não terão uma de suas componentes nulas. As funções $N^h_{ix}$ e $N^h_{iy}$ são tais que assumem valor um no seu nó correspondente e possuem valor zero em todos os outros nós, mais especificamente, o suporte dessas funções são apenas os elementos que possuem o nó correspondente como vértice e são bilineares em cada um desses elementos (bilineares por parte). A Figura \ref{fig:grid3x3ver} mostra a numeração dos nós em uma malha 3x3 enquanto a Figura \ref{fig:numeracaofuncoes} apresenta a numeração das funções $\basefunctionfine$ considerando condições de Dirichlet na borda inferior.
+Exemplos da forma das funções são apresentadas na Figura \ref{fig:shapefunctions}. 
+
+
+\begin{figure}[h]
+\center
+\subfigure[ Numeração global dos nós em malha $3\times3$. Marcados de vermelho o nó 6 e seus adjacentes. ]{\includegraphics[width=0.40\textwidth]{chap01/figs/grid3x3ver.png}\label{fig:grid3x3ver}}
+\qquad
+\subfigure[ Numeração das funções de forma $N_i^h$. Azul as funções de forma relativa à condição de contorno de Dirichlet ]{\includegraphics[width=0.45\textwidth]{chap01/figs/grid3x3_Ni.png}\label{fig:numeracaofuncoes}}
+
+\caption{Numeração dos nós e das funções de base. Para numeração das funções de base foi considerada a borda inferior com condição de Dirichlet nas direções x e y. }
+\end{figure}
+
+
+\begin{figure}[h]
+\center
+\subfigure[ ${\basefunctionfine[9x]}$ ou ${\basefunctionfine[10y]}$ ]{\includegraphics[width=0.45\textwidth]{chap01/figs/prolongation/prolongation_x_total_016.png}}
+\qquad
+\subfigure[ ${\basefunctionfine[13x]}$ ou ${\basefunctionfine[14y]}$ ]{\includegraphics[width=0.45\textwidth]{chap01/figs/prolongation/prolongation_x_total_020.png}}
+
+\subfigure[ ${\basefunctionfine[27x]}$ ou ${\basefunctionfine[28y]}$ ]{\includegraphics[width=0.45\textwidth]{chap01/figs/prolongation/prolongation_x_total_002.png}}
+\qquad
+\subfigure[ ${\basefunctionfine[31x]}$ ou ${\basefunctionfine[32y]}$ ]{\includegraphics[width=0.45\textwidth]{chap01/figs/prolongation/prolongation_x_total_006.png}}
+\caption{Gráficos das funções de forma para um grid 3x3. Foi considerada condição de Dirichlet na borda inferior }\label{fig:shapefunctions}
+\end{figure}
+    
+
+
+\subsection{Construção do sistema linear}
+
+É importante perceber que as variáveis a serem descobertas são as do vetor $\mathbf{d}$, dado que $\mathbf{\bar{d}}$ já estão definidas pelos valores da fronteira. Esses valores serão encontrados a partir da solução de um sistema linear.
+
+Para obter um sistema linear encontrar $\mathbf{d}$, pode-se substituir $\mathbf{w}$ por cada uma das funções $\basefunctionfine$ para $i = 1, 2, 3, ..., \freedomfine$ em \eqref{eq:weakformaprox}. Seguem abaixo os cálculos substituindo $\mathbf{w}$ por $\basefunctionfine$ e $\mathbf{u}^h$ por \eqref{eq:udiscretvetor}.
+
+
+\begin{equation}
+\omeint{ (\sopnabla \basefunctionfine)^T D \sopnabla (\mathbf{N^h} \mathbf{d}^h + \mathbf{\bar{N}^h} \mathbf{\bar{d}}^h )} = \int_{\Gamma_\sigma} \basefunctionfine \bar{\mathbf{t}}  d\Gamma + \omeint{(\sopnabla N_i)^T m P_p}
+\end{equation}
+
+\begin{equation}\label{eq:umaequacaosistema}
+\omeint{ (\sopnabla \basefunctionfine)^T D \sopnabla \mathbf{N^h} \mathbf{d}^h }  = \int_{\Gamma_\sigma} \basefunctionfine \bar{\mathbf{t}}  d\Gamma - \omeint{ (\sopnabla \basefunctionfine)^T D \sopnabla  \mathbf{\bar{N}^h} \mathbf{\bar{d}}^h} 
+\end{equation}
+
+Definindo, 
+
+\begin{equation}\label{eq:entradamatriz}
+    K_{i,j} = \omeint{(\sopnabla \basefunctionfine)^T D \sopnabla \basefunctionfine[j]}
+\end{equation}
+
+e
+
+\begin{equation}\label{eq:entradald}
+    f_i = \int_{\Gamma_\sigma} \basefunctionfine \bar{\mathbf{t}}  d\Gamma + \omeint{(\sopnabla \basefunctionfine)^T m P_p} - \omeint{ (\sopnabla \basefunctionfine)^T D \sopnabla  \mathbf{\bar{N}^h} \mathbf{\bar{d}}^h} 
+\end{equation}
+
+
+
+A primeira parcela do lado esquerdo pode ser reescrita como:
+
+\begin{equation}
+     (\sopnabla \basefunctionfine)^T D \sopnabla \mathbf{N^h} = [K_{i,1}\quad  K_{i,2} \quad ... \quad K_{i,\freedomfine}] = K_{i,:} 
+\end{equation}
+
+e então chegar a Equação \eqref{eq:umaequacaosistemafim}.
+
+\begin{equation} \label{eq:umaequacaosistemafim}
+K_{i,:} \mathbf{d}^h = f_i \quad \forall \quad i=1,..., \freedomfine
+\end{equation}
+
+E finalmente substituindo todos os valores possíveis de $i$ encontrasse o sistema linear \eqref{eq:sistemalinear}.
+
+\begin{equation}\label{eq:sistemalinear}
+    \mathbf{K} \mathbf{d} = \mathbf{f}
+\end{equation}
+
+
+
+onde as entradas de $K$ são definidas por  $K_{i,j} = \omeint{\kij{i}{j}}$. A solução do sistema tem como resultado os valores de cada um dos graus de liberdade e, portanto, é possível encontrar a aproximação dos deslocamentos com \eqref{eq:udiscret}. Sobre a matriz $\mathbf{K}$ satisfaz as seguintes propriedades:
+
+
+\begin{itemize}
+    \item A matriz é simétrica. Pois,
+
+    \begin{eqnarray}
+    K_{i,j} & = & (K_{i,j})^T \\
+            & = & \omeint{((\sopnabla \basefunctionfine)^T D \sopnabla \basefunctionfine[j])^T} \\
+            & = & \omeint{ ( \sopnabla \basefunctionfine[j])^T D^T  ((\sopnabla \basefunctionfine)^T)^T}\\
+            & = & \omeint{ ( \sopnabla \basefunctionfine[j])^T D  (\sopnabla \basefunctionfine)} \\
+            & = & K_{j,i}
+    \end{eqnarray}
+
+
+    \item A matriz é esparsa. Pois cada uma das funções de forma é não nula apenas nos elementos em que aquele nó é vértice. No caso de uma malha de quadriláteros, cada função de forma é não nula em quatro elementos apenas.
+
+    \item A matriz é positiva definida. A prova desse fato é encontrada em \cite{hughes}, que mostra que esse propriedade depende da relação constitutiva ser também positiva definida.
+\end{itemize}
+
+
+Ainda sobre a esparsidade da matriz de rigidez em um grid com quadriláteros, cada função de base de um nó (a menos de nós de fronteira) tem conexão com nove outros nós, contando com ele mesmo, como mostra a Figura \ref{fig:grid3x3ver} o nó 6 tem conexões com os nós [1,2,3,5,6, 7,9,10,11]. Considerando a simplificação que cada nó possui os dois graus de liberdade isso implica em duas linhas correspondentes na matriz de rigidez, e cada linha possui $2 \times 9 = 18$ valores não nulos, portanto, cada nó tem $2 \times 18 = 36$ não zeros associados na matriz, o que leva a uma aproximação para o número de não nulo da matriz de $\text{nnz}_K = 36 \qtdnos$ . Como será mostrado no Capítulo \ref{ch:sistemas}, a matriz terá que utilizar alguma estrutura de matriz esparsa, pois caso fosse alocada densa a quantidade de valores alocados seria aproximadamente $(2 \times \qtdnos)^2$ que tem ordem quadrática com o número de nós e limitaria rapidamente o tamanho dos modelos simulados. 
+
+
+Apesar de ter sido mostrado explicitamente quanto vale cada entrada da matriz em \eqref{eq:entradamatriz} a montagem da matriz não é feita dessa forma. A integrais que aparecem no domínio $\Omega$ serão dividas em cada um dos elementos passando de \eqref{eq:matrizrigidezaberta} para \eqref{eq:matrizrigidezporelemento}. 
+
+\begin{equation}\label{eq:matrizrigidezaberta}
+\mathbf{K}  = \omeint{
+\begin{bmatrix}
+\kij{1}{1} & \kij{1}{2}  & \hdots & \kij{1}{\freedomfine} \\ 
+\kij{2}{1} & \kij{2}{2}  & \hdots & \kij{2}{\freedomfine} \\ 
+\vdots &  & \ddots & \vdots\\ 
+\kij{\freedomfine}{1} & \kij{\freedomfine}{2}  & \hdots & \kij{\freedomfine}{\freedomfine} 
+\end{bmatrix}
+}
+\end{equation}
+
+
+\begin{equation}\label{eq:matrizrigidezporelemento}
+\mathbf{K}  = \sum_{e \in \tau^h} \omeeint{
+\begin{bmatrix}
+\kij{1}{1} & \kij{1}{2}  & \hdots & \kij{1}{\freedomfine} \\ 
+\kij{2}{1} & \kij{2}{2}  & \hdots & \kij{2}{\freedomfine} \\ 
+\vdots     &             & \ddots & \vdots\\ 
+\kij{\freedomfine}{1} & \kij{\freedomfine}{2}  & \hdots & \kij{\freedomfine}{\freedomfine} 
+\end{bmatrix}
+}
+\end{equation}
+
+
+Cada parcela da somatório dos elementos em \eqref{eq:matrizrigidezporelemento} é uma integral no domínio $\Omega^e$ de algum elemento e portanto apenas 8 funções de forma são não zero nesse conjunto. Dessa forma, apenas $8\times8=64$ valores são diferentes de zero em cada uma das matrizes do somatório. Assim, esse valores podem ser condensados em uma matriz menor $8\times8$ com uma numeração local do elemento conforme mostrado em \eqref{eq:matrizelementoraw}.
+
+\begin{equation}\label{eq:matrizelementoraw}
+    K^e = 
+\omeeint{
+\begin{bmatrix}
+\kije{1}{1} & \kije{1}{2}  & \hdots & \kije{1}{8}  \\ 
+\kije{2}{1} & \kije{2}{2}  & \hdots & \kije{2}{8}  \\ 
+\vdots      &              & \ddots & \vdots       \\ 
+\kije{8}{1} & \kije{8}{2}  & \hdots & \kije{8}{8} 
+\end{bmatrix}
+}
+\end{equation}
+
+Que pode ser transformada em \eqref{eq:matrizelementosemiraw}.
+
+\begin{equation}\label{eq:matrizelementosemiraw}
+    K^e =\omeeint{ (\sopnabla [\basefunctionelem[1] \basefunctionelem[2] \hdots \basefunctionelem[8] ]) ^T D (\sopnabla [\basefunctionelem[1] \basefunctionelem[2] \hdots \basefunctionelem[8]])}
+\end{equation}
+
+Definindo, 
+
+\begin{equation}
+    B^e = \sopnabla [\basefunctionelem[1] \basefunctionelem[2] \hdots \basefunctionelem[8] ]
+\end{equation}
+
+A matriz de rigidez do elemento pode ser escrita como:
+
+\begin{equation} \label{eq:}
+    K^e = \omeeint{(B^e)^T D^e B^e}
+\end{equation}
+
+
+A montagem da matriz de rigidez pode ser feita calculando a matriz do elemento e acumulando esses valores em suas posições correspondentes na matriz global. Abaixo é apresentado  o algoritmo para montagem da matriz de rigidez global.
+
+\vspace{1cm}
+\noindent\fbox{%
+    \parbox{\textwidth}{%
+        \begin{algorithmic}
+        \STATE Inicialize $\mathbf{K}$ com zeros
+        \FORALL{elemento $E \in \tau^h$}
+        \STATE Calcule a matriz de rigidez do elemento $K^e$
+        \FORALL{Grau de liberdade i em E}
+        \FORALL{Grau de liberdade j em E}
+        \STATE Acumule em $\mathbf{K}$ o valor  $K^e[i,j]$ na posição correspondente 
+        \ENDFOR
+        \ENDFOR
+        \ENDFOR
+        \end{algorithmic}
+    }%
+}
+\vspace{1cm}
+
+
+Algo que ainda precisa ser feito é mostrar como o cálculo da matriz $K^e$ é realizado. O primeiro passo é tentar modificar a integral para um domínio ela pode ser mais facilmente calculada, para isso, o domínio $\Omega^e$ será associado a um elemento padrão  $\Omega^\xi = [-1,1]\times[-1,1]$ que é um elemento padrão em coordenadas $\xi$ e $\eta$. A Figura \ref{fig:bijecaoelemento} mostra a associação entre os dois elementos.
+
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[height=6cm]{chap01/figs/elementopadrao.png}
+\caption{Bijeção entre elemento $\Omega^e$ e $\Omega^\xi$}
+\label{fig:bijecaoelemento}
+\end{figure}
+
+
+No elemento padrão $\Omega^\xi$ as funções de forma bilineares associadas aos nós são facilmente definidas como apresentado em \eqref{eq:definicaofuncform}. 
+
+
+\begin{equation}
+\begin{matrix}\label{eq:definicaofuncform}
+\phi_1(\xi, \eta) = \frac{1}{4} (1-\xi)(1-\eta) \\
+\phi_2(\xi, \eta) = \frac{1}{4} (1-\xi)(1+\eta) \\
+\phi_3(\xi, \eta) = \frac{1}{4} (1+\xi)(1+\eta) \\
+\phi_4(\xi, \eta) = \frac{1}{4} (1+\xi)(1-\eta) \\
+\end{matrix}
+\end{equation}
+
+
+Um ponto de $\Omega^e$ é associado a um ponto em $\Omega^\xi$ através de uma associação isoparamétrica de acordo com \eqref{eq:isoparametrico}. 
+
+
+\begin{equation}\label{eq:isoparametrico}
+\begin{matrix}
+\mathbf{x}(\xi, \eta) = \sum_{A=1}^{4} \phi_A(\xi, \eta) \mathbf{x^e_A} \\
+\mathbf{y}(\xi, \eta) = \sum_{A=1}^{4} \phi_A(\xi, \eta) \mathbf{y^e_A} 
+\end{matrix}
+\end{equation}
+
+Onde $x^e_A$ e $y^e_A$ para $i=1,2,3,4$ são as coordenadas dos vértices do elemento.
+
+Com isso, as funções $\phi$ em \eqref{eq:definicaofuncform} estão definidas implicitamente em função de x e y. As funções de base $\basefunctionfine$ assumem exatamente os valores dessas funções em um dado elemento. Portanto, pode-se reescrever a matriz $B^e$ da seguinte forma:
+
+
+\begin{equation} \label{eq:bephi}
+    B^e = \sopnabla \begin{bmatrix}
+\phi_1 & 0      & \phi_2 & 0 & \phi_3 & 0 & \phi_4 & 0\\ 
+0      & \phi_1 & 0 & \phi_2 & 0 & \phi_3 & 0 & \phi_4
+\end{bmatrix}
+\end{equation}
+
+
+Assim é possível realizar uma substituição de variáveis na integral apresentada em \eqref{eq:matrizelementosemiraw}.
+
+
+\begin{eqnarray}
+K^e     & = & \omeeint{ (\sopnabla [\basefunctionelem[1] \basefunctionelem[2] \hdots \basefunctionelem[8] ]) ^T D (\sopnabla [\basefunctionelem[1] \basefunctionelem[2] \hdots \basefunctionelem[8]])}   \\
+        & = &  \intbase{(\sopnabla [\basefunctionelem[1] \basefunctionelem[2] \hdots \basefunctionelem[8] ]) ^T D (\sopnabla [\basefunctionelem[1] \basefunctionelem[2] \hdots \basefunctionelem[8]]) |J| } 
+\end{eqnarray}
+
+
+Onde J representa o jacobiano
+
+\begin{equation}
+J = \begin{bmatrix}
+\dxi[x]   &  \dxi[y]    \\
+\deta[x]  &  \deta[y] 
+\end{bmatrix}
+\label{eq:jacobiano}
+\end{equation}
+
+
+A integral no domínio $[-1, 1] \times [-1,1] $ pode ser calculada através do método de quadratura de gauss que pode ser encontrado em \cite{jacob}. O método consiste em trocar a integral por um somatório ponderado por pesos $w_i$ em alguns pontos determinados da função chamados de pontos de integração. A quantidade de pontos de integração determina quão boa é a aproximação para o caso. Com $n_p$ pontos de integração é possível integrar exatamente um 
+polinômio de tamanho $2n_p - 1$. % TODO adicionar tabela com pontos de integração?
+
+Com isso a integral pode ser trocada por um somatório.
+
+\begin{equation}
+    \sum^{n_p}_{i=1} (\sopnabla [\basefunctionelem[1] \basefunctionelem[2] \hdots \basefunctionelem[8] ]) ^T D (\sopnabla [\basefunctionelem[1] \basefunctionelem[2] \hdots \basefunctionelem[8]])|J||_{x=p_i} w_i
+\end{equation}
+
+O cálculo do jacobiano em um determinado ponto pode ser calculado utilizando \eqref{eq:isoparametrico}
+
+\begin{equation}\label{eq:jacobianoderivadas}
+\begin{matrix}
+\dxi[x] = \sum^4_{A=1} \dxi[\phi_A] x^e_A &  \deta[x] = \sum^4_{A=1} \deta[\phi_A] x^e_A\\
+\dxi[y] = \sum^4_{A=1} \dxi[\phi_A] y^e_A &  \deta[y] = \sum^4_{A=1} \deta[\phi_A] y^e_A
+\end{matrix}
+\end{equation}
+
+
+Além disso, é necessário também calcular as derivadas de $\phi_A$ nas coordenadas x e y.  Para isso será necessário inverter a matriz Jacobiana pois:
+
+
+\begin{equation}
+J \deriv = \der \rightarrow
+\end{equation}
+
+\begin{equation} \label{eq:devformglobal}
+     \deriv = J ^{-1}\der
+\end{equation}
+
+Com \eqref{eq:devformglobal}  é possível calcular as derivadas das funções de forma em função das coordenadas x e y. Feito isso, todos os termos da matriz $B^e$ podem ser obtidos finalizando assim o cálculo da matriz de rigidez do elemento.
+
+
+
+\subsection{Condições de Contorno}
+
+As condições de contorno do problema já foram incorporadas no problema através do lado direito do sistema em \eqref{eq:entradald}, porém existem alternativas que, dependendo do caso, podem ser melhores para incorporar as condições de contorno ao problema. São apresentados aqui outras duas maneiras. As duas consistem de, ao invés de remover os graus de liberdade referentes as condições de Dirichlet,  adicioná-los na matriz de rigidez e forçar junto do lado direito que tenham o valor imposto pela condição de contorno. Com isso, a matriz de rigidez terá sempre o mesmo tamanho igual a $2\times \qtdnos$. A  \eqref{eq:bigconst} apresenta como a condição de contorno pode ser adicionada a matriz, onde o valor B representa um valor muito maior que os outros valores da linha. 
+
+\begin{equation} \label{eq:bigconst}
+\begin{blockarray}{ccccc}
+& \bar{d}_1^h &  & d_i ^h & & \\
+& \downarrow &  & \downarrow & & \\
+\begin{block}{c(cccc)}
+\bar{d_1}^h \rightarrow & B & \hdots &  \kij{1+\freedomfine}{i}  & \hdots \\ 
+\vdots                  &   & \vdots &             \\ 
+d_i^h       \rightarrow &{ \color{red}\kij{i}{n_u^h + 1} }  &      & \kij{i}{i}   & \hdots \\
+& \vdots &      & \vdots   &  \\
+\end{block}
+\end{blockarray} \begin{blockarray}{c}
+ \\
+ \\
+\begin{block}{(c)}
+\bar{d_1}^h \\
+\vdots\\
+d_i^h \\
+\vdots  \\
+\end{block}
+\end{blockarray}\begin{blockarray}{c}
+ \\
+ \\
+ \\
+= \\
+ \\
+\end{blockarray} \begin{blockarray}{c}
+ \\
+ \\
+\begin{block}{(c)}
+ B \bar{u}_1 \\
+\vdots\\
+f^\prime_i \\
+\vdots  \\
+\end{block}
+\end{blockarray}
+\end{equation}
+
+
+onde $\bar{u}_1$ representa o valor imposto pela condição de Dirichlet e $f^\prime_i$ representa o termo de \ref{eq:entradald} sem o termo da condição de Dirichlet presente. 
+
+Dessa forma, a primeira equação quando resolvida mostra $B\bar{d}_1^h = B\bar{u}_1 \rightarrow \bar{d}_1^h = \bar{u}_1$, já a equação relativa ao grau de liberdade $d_i^h$ terá o lado direito $f^\prime_i$ complementada com o valor do lado esquerdo $\bar{d}_1^h \kij{i}{1+\freedomfine}$ (marcado em vermelho) ficando equivalente a \eqref{eq:entradald}.
+
+Uma variante dessa versão é zerar toda a linha relativa à $\bar{d}^h_1$ com exceção da diagonal principal que terá valor um. Nesse caso, tem a desvantagem de remover a simetria da matriz. 
+
+\begin{equation} \label{eq:diagident}
+\begin{blockarray}{ccccc}
+& d_1^h &  & d_i ^h & & \\
+& \downarrow &  & \downarrow & & \\
+\begin{block}{c(cccc)}
+\bar{d_1}^h \rightarrow & 1 & \hdots & 0 & \hdots \\ 
+\vdots                  &   & \vdots &             \\ 
+d_i^h       \rightarrow & \kij{i}{n_u^h + 1}   &      & \kij{i}{i}   & \hdots \\
+& \vdots &      & \vdots   &  \\
+\end{block}
+\end{blockarray} \begin{blockarray}{c}
+ \\
+ \\
+\begin{block}{(c)}
+\bar{d_1}^h \\
+\vdots\\
+d_i^h \\
+\vdots  \\
+\end{block}
+\end{blockarray} \begin{blockarray}{c}
+ \\
+ \\
+ \\
+= \\
+ \\
+\end{blockarray} \begin{blockarray}{c}
+ \\
+ \\
+\begin{block}{(c)}
+ \bar{u}_1 \\
+\vdots\\
+f^\prime_i \\
+\vdots  \\
+\end{block}
+\end{blockarray}
+\end{equation}
+
+
+
+
+\subsection{Cálculo da Carga por Diferença de pressão}
+
+A Equação \eqref{eq:entradald}, mostra cada valor do vetor de carga $\mathbf{f}$. Três termos aparecem nesse caso: o primeiro relativo as condições de contorno de tração, o segundo relativo a pressão de poros e a terceira relativo as condições de contorno de Dirichlet. Nesse trabalho, o segundo termo será o de maior importância, pois serão calculados os deslocamentos no reservatório e rochas adjacentes em função de uma diferença de pressão causada pela produção do petróleo ou injeção de água. Devido a essas duas ações, a pressão de poros do reservatório irá variar gerando deformações e variação nas tensões da rocha. 
+
+Assim, como a matriz de rigidez, o cálculo do lado direito será realizado através do somatório da contribuição de cada elemento. Abaixo segue o cálculo da contribuição do elemento, será considerado que o campo de pressões será constante por elemento visto que esses serão recebidos de um simulador de fluxo que utiliza o método de volumes finitos e, portanto, calcula as pressões nos elementos e não nos nós.
+
+\begin{equation}
+    \mathbf{f^e} = \omeeint{\begin{bmatrix}
+(\sopnabla \basefunctionelem[1])^T m \alpha^e P^e_p
+\\ 
+(\sopnabla \basefunctionelem[2])^T m \alpha^e P^e_p
+\\ 
+(\sopnabla \basefunctionelem[3])^T m \alpha^e P^e_p
+\\ 
+(\sopnabla \basefunctionelem[4])^T m \alpha^e P^e_p
+\\ 
+(\sopnabla \basefunctionelem[5])^T m \alpha^e P^e_p
+\\ 
+(\sopnabla \basefunctionelem[6])^T m \alpha^e P^e_p
+\\ 
+(\sopnabla \basefunctionelem[7])^T m \alpha^e P^e_p
+\\ 
+(\sopnabla \basefunctionelem[8])^T m \alpha^e P^e_p
+\end{bmatrix}}
+\end{equation}
+
+onde $\alpha^e$ e $P^e_p$ são os valores do coeficiente de Biot e de pressão do elemento \textit{e} em questão. Assim, pode-se continuar o calculo de $\mathbf{f^e}$.
+
+
+\begin{equation}
+\mathbf{f^e} = \omeeint{\begin{bmatrix}
+(\sopnabla \basefunctionelem[1])^T 
+\\ 
+(\sopnabla \basefunctionelem[2])^T 
+\\ 
+(\sopnabla \basefunctionelem[3])^T 
+\\ 
+(\sopnabla \basefunctionelem[4])^T 
+\\ 
+(\sopnabla \basefunctionelem[5])^T 
+\\ 
+(\sopnabla \basefunctionelem[6])^T 
+\\ 
+(\sopnabla \basefunctionelem[7])^T 
+\\ 
+(\sopnabla \basefunctionelem[8])^T 
+\end{bmatrix} m \alpha^e P^e_p }
+ = (\sopnabla [\basefunctionelem[1], \basefunctionelem[2], ..., \basefunctionelem[8]])^T m \alpha^e P^e_p
+\end{equation}
+
+O primeiro termo da equação pode ser substituida assim como \eqref{eq:bephi}.
+
+
+\begin{equation}
+   \mathbf{ f^e } = \omeeint{(\sopnabla \begin{bmatrix}
+                        \phi_1 & 0      & \phi_2 & 0 & \phi_3 & 0 & \phi_4 & 0\\ 
+                        0      & \phi_1 & 0 & \phi_2 & 0 & \phi_3 & 0 & \phi_4
+                    \end{bmatrix} ) ^ T \begin{bmatrix}
+                    1\\1\\0
+                    \end{bmatrix} \alpha^e P^e_p}
+\end{equation}
+
+\begin{equation} \label{eq:cargafinal}
+   \mathbf{ f^e } = \omeeint{\begin{bmatrix}
+    \dx[\phi_1] & 0           & \dy[\phi_1] \\
+    0           & \dy[\phi_1] & \dx[\phi_1] \\
+    \dx[\phi_2] & 0           & \dy[\phi_2] \\
+    0           & \dy[\phi_2] & \dx[\phi_2] \\
+    \vdots      & \vdots & \vdots      \\
+
+    \dx[\phi_8] & 0           & \dy[\phi_8] \\
+    0           & \dy[\phi_8] & \dx[\phi_8] \\
+
+    \end{bmatrix} \begin{bmatrix}  1\\1\\0 \end{bmatrix} \alpha^e P^e_p }
+    = \omeeint{\begin{bmatrix}
+      \dx[\phi_1] \\
+      \dy[\phi_1] \\
+      \dx[\phi_2] \\
+      \dy[\phi_2] \\
+      \vdots      \\
+      \dx[\phi_8] \\
+      \dy[\phi_8] \\
+    \end{bmatrix} \alpha^e P^e_p }
+\end{equation}
+
+A fórmula com a carga final utilizada é apresentada \eqref{eq:cargafinal}. Procedimento similar ao feito para a matriz de rigidez tem que ser feito para o cálculo dos valores: Mudança de variáveis para elemento padrão $\Omega^\xi$, substituição da integral por um somatório através da Quadratura de Gauss e cálculo da derivada das funções de forma no sistema de coordenadas x, y. 
